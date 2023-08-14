@@ -1,6 +1,11 @@
 {
     "cSpell.words": [
+        "bitstamp",
         "reqwest",
         "tungstenite"
+    ],
+    "rust-analyzer.linkedProjects": [
+        "./Cargo.toml",
+        "./Cargo.toml"
     ]
 }

@@ -9,8 +9,8 @@
 
 1. Connect one exchange's websocket feed
 
--   Y Test Binance & Bitstamp with cli
--   X Connect to Websocket (trying tokio-tungstenite)
+-   [Y] Test Binance & Bitstamp with cli
+-   [x] Connect to Websocket (trying tokio-tungstenite)
 
 2. Connect to two exchanges' websocket feeds at the same time
 3. Aggregation
@@ -31,11 +31,16 @@ wscat -c wss://stream.binance.com:9443/ws/ethbtc@depth20@100ms
 wscat -c wss://stream.binance.com:9443/ws/btcusdt
 ```
 
+```bash
+wscat -c wss://stream.binance.com:9443/ws
+```
+
 ```json
+{ "method": "SUBSCRIBE",   "params": [ "btcusdt@depth20@100ms"  ],  "id": 1 }
 { "method": "SUBSCRIBE",   "params": [     "btcusdt@aggTrade",     "btcusdt@depth"  ],  "id": 1 }
 
 { "method": "UNSUBSCRIBE",   "params": [     "btcusdt@depth"   ],   "id": 312 }
-
+cli
 { "method": "LIST_SUBSCRIPTIONS", "id": 3 }
 ```
 
