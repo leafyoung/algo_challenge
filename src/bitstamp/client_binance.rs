@@ -48,8 +48,8 @@ pub struct BookData {
     pub asks: Vec<(String, String)>,
 }
 
-// pub const DEFAULT_WS_BASE_URL: &str = "wss://stream.binance.com:9443/ws";
-pub const DEFAULT_WS_BASE_URL: &str = "wss://stream.binance.com:9443/ws/ethbtc@depth10@100ms";
+pub const DEFAULT_WS_BASE_URL: &str = "wss://stream.binance.com:9443/ws";
+// pub const DEFAULT_WS_BASE_URL: &str = "wss://stream.binance.com:9443/ws/ethbtc@depth10@100ms";
 // pub const DEFAULT_WS_BASE_URL: &str = "wss://stream.binance.com:443/ws";
 //
 
@@ -135,7 +135,6 @@ impl BinanceClient {
         self.send(req).await
     }
 
-    // <https://assets.bitstamp.net/static/webapp/examples/order_book_v2.3610acefe104f01a8dcd4fda1cb88403f368526b.html>
     pub async fn subscribe_orderbook(&mut self, symbol: &str) {
         let params = format!("{symbol}@depth20@100ms");
 
