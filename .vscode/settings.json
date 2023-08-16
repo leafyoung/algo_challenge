@@ -1,7 +1,10 @@
 {
     "cSpell.words": [
         "bitstamp",
+        "btcusdt",
         "reqwest",
+        "serde",
+        "thiserror",
         "tungstenite"
     ],
     "rust-analyzer.linkedProjects": [

@@ -1,4 +1,3 @@
-
 //! <https://www.bitstamp.net/websocket/v2/>
 
 use std::pin::Pin;
@@ -10,17 +9,16 @@ use tokio::net::TcpStream;
 use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, WebSocketStream};
 use async_stream::stream;
 
-use crate::bitstamp::error::Error;
+use crate::exchange::error::Error;
 pub type Result<T> = std::result::Result<T, Error>;
+
+pub const SUBSCRIBE_EVENT: &str = "bts:subscribe";
 
 #[derive(Debug, Serialize)]
 pub struct Request<D> {
     pub event: String,
     pub data: D,
 }
-
-
-pub const SUBSCRIBE_EVENT: &str = "bts:subscribe";
 
 #[derive(Default, Serialize)]
 pub struct SubscribeData {
@@ -51,7 +49,7 @@ pub struct BookData {
 pub const DEFAULT_WS_BASE_URL: &str = "wss://ws.bitstamp.net";
 
 /// A WebSocket client for Bitstamp.
-pub struct Client {
+pub struct BitstampClient {
     sender: SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>,
     // The thread_handle will be dropped when the Client drops.
     #[allow(dead_code)]
@@ -60,7 +58,7 @@ pub struct Client {
     pub book_events: Option<Pin<Box<dyn Stream<Item = BookEvent> + Send + Sync>>>,
 }
 
-impl Client {
+impl BitstampClient {
     pub async fn connect(url: &str) -> Result<Self> {
         let (stream, _) = connect_async(url).await?;
         let (sender, receiver) = stream.split();
@@ -130,7 +128,7 @@ impl Client {
     pub async fn subscribe_orderbook(&mut self, symbol: &str) {
         let channel = format!("order_book_{symbol}");
 
-        self.call(SUBSCRIBE_EVENT, SubscribeData { channel })
+        self.call(SUBSCRIBE_EVENT, SubscribeData::new(&channel))
             .await
             .expect("cannot send request");
 

@@ -1,5 +1,4 @@
-
-//! <https://www.bitstamp.net/websocket/v2/>
+//! <https://github.com/binance/binance-spot-api-docs/blob/master/web-socket-streams.md>
 
 use std::pin::Pin;
 
@@ -7,11 +6,27 @@ use futures::{stream::SplitSink, StreamExt};
 use futures_util::{SinkExt, Stream};
 use serde::{Deserialize, Serialize};
 use tokio::net::TcpStream;
-use tokio_tungstenite::{connect_async, tungstenite::{Message, http::method}, MaybeTlsStream, WebSocketStream};
+use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, WebSocketStream};
 use async_stream::stream;
+use std::fmt::Debug;
+use crate::exchange::error::Error;
 
-use crate::bitstamp::error::Error;
-pub type Result<T> = std::result::Result<T, Error>;
+pub const SUBSCRIBE_METHOD: &str = "SUBSCRIBE";
+
+/// The order book levels (i.e. depth) to subscribe to).
+/// Valid <levels> are 5, 10, or 20
+#[allow(dead_code)]
+pub enum Levels {
+    L5 = 5,
+    L10 = 10,
+    L20 = 20,
+}
+
+#[allow(dead_code)]
+pub enum Speed {
+    S1000 = 1000,
+    S100 = 100,
+}
 
 #[derive(Debug, Serialize)]
 pub struct Request<D> {
@@ -20,38 +35,23 @@ pub struct Request<D> {
     pub id: u64,
 }
 
-pub const SUBSCRIBE_EVENT: &str = "SUBSCRIBE";
-
-#[derive(Default, Serialize)]
-pub struct SubscribeData {
-    params: Vec<String>,
-}
-
-
-impl SubscribeData {
-    pub fn new(channel: &str) -> Self {
-        Self {
-            params: vec![channel.to_string()].to_vec(),
-        }
-    }
-}
 
 #[derive(Debug, Deserialize)]
 pub struct BookEvent {
-    pub data: BookData,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct BookData {
-    pub lastUpdateId: String,
+    #[serde(rename = "lastUpdateId")]
+    pub last_update_id: u64,
     pub bids: Vec<(String, String)>,
     pub asks: Vec<(String, String)>,
 }
 
-pub const DEFAULT_WS_BASE_URL: &str = "wss://stream.binance.com:9443/ws";
-// pub const DEFAULT_WS_BASE_URL: &str = "wss://stream.binance.com:9443/ws/ethbtc@depth10@100ms";
-// pub const DEFAULT_WS_BASE_URL: &str = "wss://stream.binance.com:443/ws";
-//
+pub type Result<T> = std::result::Result<T, Error>;
+
+// Alternative:
+// pub const DEFAULT_WS_BASE_URL: &str = "wss://stream.binance.com:443/ws"
+// Direct link: "wss://stream.binance.com:9443/ws/ethbtc@depth10@100ms";
+#[allow(dead_code)]
+pub const DEFAULT_WS_BASE_URL: &str = "wss://stream.binance.com:9443";
+pub const DEFAULT_MARKET_DATA_WS_BASE_URL: &str = "wss://data-stream.binance.vision";
 
 /// A WebSocket client for Binance.
 pub struct BinanceClient {
@@ -61,7 +61,7 @@ pub struct BinanceClient {
     thread_handle: tokio::task::JoinHandle<()>,
     pub broadcast: Option<tokio::sync::broadcast::Sender<String>>,
     pub book_events: Option<Pin<Box<dyn Stream<Item = BookEvent> + Send + Sync>>>,
-    id: u64,
+    next_id: u64,
 }
 
 impl BinanceClient {
@@ -81,10 +81,6 @@ impl BinanceClient {
                         tracing::debug!("{string}");
                         if let Err(err) = broadcast_sender.send(string) {
                             tracing::trace!("{err:?}");
-                            /*
-                            Break the while loop so that the receiver handle is dropped
-                            and the task unsubscribes from the summary stream.
-                            */
                             break;
                         }
                     }
@@ -99,12 +95,12 @@ impl BinanceClient {
             thread_handle,
             broadcast: Some(broadcast),
             book_events: None,
-            id: 1,
+            next_id: 0,
         })
     }
 
     pub async fn connect_public() -> Result<Self> {
-        let url = format!("{DEFAULT_WS_BASE_URL}/");
+        let url = format!("{DEFAULT_MARKET_DATA_WS_BASE_URL}/ws");
         Self::connect(&url).await
     }
 
@@ -120,25 +116,29 @@ impl BinanceClient {
         Ok(())
     }
 
+
     /// Performs a remote procedure call.
-    pub async fn call<D>(&mut self, event: impl Into<String>, data: D) -> Result<()>
+    pub async fn call<D>(&mut self, event: impl Into<String>, params: D) -> Result<()>
     where
-        D: Serialize,
+        D: Debug + Serialize,
     {
         let req = Request {
             method: event.into(),
-            params: data,
-            id: self.id,
+            params,
+            id: self.gen_next_id(),
         };
-        self.id+=1;
-
         self.send(req).await
     }
 
-    pub async fn subscribe_orderbook(&mut self, symbol: &str) {
-        let params = format!("{symbol}@depth20@100ms");
+    fn gen_next_id(&mut self) -> u64 {
+        self.next_id += 1;
+        self.next_id
+    }
+    // <https://github.com/binance/binance-spot-api-docs/blob/master/web-socket-streams.md#partial-book-depth-streams>
+    pub async fn subscribe_orderbook(&mut self, symbol: &str, levels: Levels, speed: Speed) {
+        let topic: String = format!("{symbol}@depth{}@{}ms", levels as u8, speed as u16);
 
-        self.call(SUBSCRIBE_EVENT, SubscribeData::new(&params))
+        self.call(SUBSCRIBE_METHOD, vec![topic])
             .await
             .expect("cannot send request");
 
