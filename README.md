@@ -7,13 +7,12 @@
 
 ## TODO
 
-1. Connect one exchange's websocket feed
 [x] Test Binance & Bitstamp with cli
-[x] Connect to Websocket (trying tokio-tungstenite)
-2. [x] Connect to two exchanges' websocket feeds at the same time
-3. [x] Aggregation
-4. gRPC server
-5. Optimize
+[x] Connect to Exchange's Websocket
+[x] Connect to two exchanges' websocket feeds at the same time
+[x] Aggregation
+5. gRPC server
+6. Optimize
 
 ## 1. wscat cli
 
