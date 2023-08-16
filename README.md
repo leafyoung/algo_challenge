@@ -7,10 +7,10 @@
 
 ## TODO
 
-[x] Test Binance & Bitstamp with cli
-[x] Connect to Exchange's Websocket
-[x] Connect to two exchanges' websocket feeds at the same time
-[x] Aggregation
+-    [x] Test Binance & Bitstamp with cli
+-    [x] Connect to Exchange's Websocket
+-    [x] Connect to two exchanges' websocket feeds at the same time
+-    [x] Aggregation
 5. gRPC server
 6. Optimize
 
