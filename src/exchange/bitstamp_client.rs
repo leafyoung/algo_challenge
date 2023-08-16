@@ -2,12 +2,14 @@
 
 use std::pin::Pin;
 
+use async_stream::stream;
 use futures::{stream::SplitSink, StreamExt};
 use futures_util::{SinkExt, Stream};
 use serde::{Deserialize, Serialize};
 use tokio::net::TcpStream;
 use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, WebSocketStream};
-use async_stream::stream;
+
+use crate::exchange::types::{Exchange, Level, OrderBook};
 
 use crate::exchange::error::Error;
 pub type Result<T> = std::result::Result<T, Error>;
@@ -34,12 +36,13 @@ impl SubscribeData {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct BookEvent {
+pub struct BitstampBookEvent {
     pub data: BookData,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct BookData {
+    // parse partially
     pub timestamp: String,
     pub microtimestamp: String,
     pub bids: Vec<(String, String)>,
@@ -55,7 +58,7 @@ pub struct BitstampClient {
     #[allow(dead_code)]
     thread_handle: tokio::task::JoinHandle<()>,
     pub broadcast: Option<tokio::sync::broadcast::Sender<String>>,
-    pub book_events: Option<Pin<Box<dyn Stream<Item = BookEvent> + Send + Sync>>>,
+    pub book_events: Option<Pin<Box<dyn Stream<Item = OrderBook> + Send + Sync>>>,
 }
 
 impl BitstampClient {
@@ -125,7 +128,7 @@ impl BitstampClient {
     }
 
     // <https://assets.bitstamp.net/static/webapp/examples/order_book_v2.3610acefe104f01a8dcd4fda1cb88403f368526b.html>
-    pub async fn subscribe_orderbook(&mut self, symbol: &str) {
+    pub async fn subscribe_orderbook(&mut self, symbol: &str, best_of: usize) {
         let channel = format!("order_book_{symbol}");
 
         self.call(SUBSCRIBE_EVENT, SubscribeData::new(&channel))
@@ -140,8 +143,27 @@ impl BitstampClient {
 
         let depth_events = stream! {
             while let Ok(msg) = messages_receiver.recv().await {
-                if let Ok(msg) = serde_json::from_str::<BookEvent>(&msg) {
-                    yield msg
+                if let Ok(msg) = serde_json::from_str::<BitstampBookEvent>(&msg) {
+                    let bids = msg.data.bids
+                        .iter()
+                        .take(best_of)
+                        .map(|x| (Level {
+                            exchange: Exchange::Bitstamp.to_string(),
+                            price: x.0.parse::<f32>().unwrap(),
+                             amount: x.1.parse::<f32>().unwrap()
+                        }))
+                        .collect();
+                    let asks = msg.data.asks
+                        .iter()
+                        .take(best_of)
+                        .map(|x| (Level {
+                            exchange: Exchange::Bitstamp.to_string(),
+                            price: x.0.parse::<f32>().unwrap(),
+                             amount: x.1.parse::<f32>().unwrap()
+                        }))
+                        .collect();
+                    let book_event = OrderBook { exchange: Exchange::Bitstamp, last_updated: msg.data.microtimestamp, bids: bids, asks: asks };
+                    yield book_event;
                 }
             }
         };
@@ -150,6 +172,4 @@ impl BitstampClient {
 
         self.book_events = Some(depth_events);
     }
-
-
 }

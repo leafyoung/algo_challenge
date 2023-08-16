@@ -1,7 +1,9 @@
 {
     "cSpell.words": [
         "bitstamp",
+        "btcusd",
         "btcusdt",
+        "ethbtc",
         "reqwest",
         "serde",
         "thiserror",

@@ -2,21 +2,22 @@
 
 use std::pin::Pin;
 
+use crate::exchange::error::Error;
+use crate::exchange::types::{Exchange, Level, OrderBook};
+use async_stream::stream;
 use futures::{stream::SplitSink, StreamExt};
 use futures_util::{SinkExt, Stream};
 use serde::{Deserialize, Serialize};
+use std::fmt::Debug;
 use tokio::net::TcpStream;
 use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, WebSocketStream};
-use async_stream::stream;
-use std::fmt::Debug;
-use crate::exchange::error::Error;
 
 pub const SUBSCRIBE_METHOD: &str = "SUBSCRIBE";
 
 /// The order book levels (i.e. depth) to subscribe to).
 /// Valid <levels> are 5, 10, or 20
 #[allow(dead_code)]
-pub enum Levels {
+pub enum PriceLevels {
     L5 = 5,
     L10 = 10,
     L20 = 20,
@@ -35,9 +36,9 @@ pub struct Request<D> {
     pub id: u64,
 }
 
-
 #[derive(Debug, Deserialize)]
-pub struct BookEvent {
+pub struct BinanceBookEvent {
+    // partial parse
     #[serde(rename = "lastUpdateId")]
     pub last_update_id: u64,
     pub bids: Vec<(String, String)>,
@@ -60,7 +61,7 @@ pub struct BinanceClient {
     #[allow(dead_code)]
     thread_handle: tokio::task::JoinHandle<()>,
     pub broadcast: Option<tokio::sync::broadcast::Sender<String>>,
-    pub book_events: Option<Pin<Box<dyn Stream<Item = BookEvent> + Send + Sync>>>,
+    pub book_events: Option<Pin<Box<dyn Stream<Item = OrderBook> + Send + Sync>>>,
     next_id: u64,
 }
 
@@ -116,7 +117,6 @@ impl BinanceClient {
         Ok(())
     }
 
-
     /// Performs a remote procedure call.
     pub async fn call<D>(&mut self, event: impl Into<String>, params: D) -> Result<()>
     where
@@ -135,7 +135,13 @@ impl BinanceClient {
         self.next_id
     }
     // <https://github.com/binance/binance-spot-api-docs/blob/master/web-socket-streams.md#partial-book-depth-streams>
-    pub async fn subscribe_orderbook(&mut self, symbol: &str, levels: Levels, speed: Speed) {
+    pub async fn subscribe_orderbook(
+        &mut self,
+        symbol: &str,
+        levels: PriceLevels,
+        speed: Speed,
+        best_of: usize,
+    ) {
         let topic: String = format!("{symbol}@depth{}@{}ms", levels as u8, speed as u16);
 
         self.call(SUBSCRIBE_METHOD, vec![topic])
@@ -150,8 +156,27 @@ impl BinanceClient {
 
         let depth_events = stream! {
             while let Ok(msg) = messages_receiver.recv().await {
-                if let Ok(msg) = serde_json::from_str::<BookEvent>(&msg) {
-                    yield msg
+                if let Ok(msg) = serde_json::from_str::<BinanceBookEvent>(&msg) {
+                    let bids = msg.bids
+                        .iter()
+                        .take(best_of)
+                        .map(|x| (Level {
+                            exchange: Exchange::Binance.to_string(),
+                            price: x.0.parse::<f32>().unwrap(),
+                             amount: x.1.parse::<f32>().unwrap()
+                        }))
+                        .collect();
+                    let asks = msg.asks
+                        .iter()
+                        .take(best_of)
+                        .map(|x| (Level {
+                            exchange: Exchange::Binance.to_string(),
+                            price: x.0.parse::<f32>().unwrap(),
+                             amount: x.1.parse::<f32>().unwrap()
+                        }))
+                        .collect();
+                    let book_event = OrderBook { exchange: Exchange::Binance, last_updated: msg.last_update_id.to_string(), bids: bids, asks: asks };
+                    yield book_event;
                 }
             }
         };
@@ -160,6 +185,4 @@ impl BinanceClient {
 
         self.book_events = Some(depth_events);
     }
-
-
 }
