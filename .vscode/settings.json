@@ -1,6 +1,16 @@
 {
     "cSpell.words": [
+        "bitstamp",
+        "btcusd",
+        "btcusdt",
+        "ethbtc",
         "reqwest",
+        "serde",
+        "thiserror",
         "tungstenite"
+    ],
+    "rust-analyzer.linkedProjects": [
+        "./Cargo.toml",
+        "./Cargo.toml"
     ]
 }
