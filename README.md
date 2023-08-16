@@ -8,10 +8,8 @@
 ## TODO
 
 1. Connect one exchange's websocket feed
-
--   [x] Test Binance & Bitstamp with cli
--   [x] Connect to Websocket (trying tokio-tungstenite)
-
+[x] Test Binance & Bitstamp with cli
+[x] Connect to Websocket (trying tokio-tungstenite)
 2. [x] Connect to two exchanges' websocket feeds at the same time
 3. [x] Aggregation
 4. gRPC server
