@@ -1,16 +1,18 @@
 //! <https://github.com/binance/binance-spot-api-docs/blob/master/web-socket-streams.md>
 
+use crate::exchange::error::Error;
+use std::fmt::Debug;
 use std::pin::Pin;
 
-use crate::exchange::error::Error;
-use crate::exchange::types::{Exchange, Level, OrderBook};
 use async_stream::stream;
 use futures::{stream::SplitSink, StreamExt};
 use futures_util::{SinkExt, Stream};
 use serde::{Deserialize, Serialize};
-use std::fmt::Debug;
+
 use tokio::net::TcpStream;
 use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, WebSocketStream};
+
+use crate::types::{Exchange, Level, OrderBook};
 
 pub const SUBSCRIBE_METHOD: &str = "SUBSCRIBE";
 
@@ -70,7 +72,6 @@ impl BinanceClient {
         let (stream, _) = connect_async(url).await?;
         let (sender, receiver) = stream.split();
         let (broadcast_sender, _) = tokio::sync::broadcast::channel::<String>(32);
-
         let broadcast = broadcast_sender.clone();
 
         let thread_handle = tokio::spawn(async move {
@@ -162,8 +163,8 @@ impl BinanceClient {
                         .take(best_of)
                         .map(|x| (Level {
                             exchange: Exchange::Binance.to_string(),
-                            price: x.0.parse::<f32>().unwrap(),
-                             amount: x.1.parse::<f32>().unwrap()
+                            price: x.0.parse::<f64>().unwrap(),
+                             amount: x.1.parse::<f64>().unwrap()
                         }))
                         .collect();
                     let asks = msg.asks
@@ -171,8 +172,8 @@ impl BinanceClient {
                         .take(best_of)
                         .map(|x| (Level {
                             exchange: Exchange::Binance.to_string(),
-                            price: x.0.parse::<f32>().unwrap(),
-                             amount: x.1.parse::<f32>().unwrap()
+                            price: x.0.parse::<f64>().unwrap(),
+                             amount: x.1.parse::<f64>().unwrap()
                         }))
                         .collect();
                     let book_event = OrderBook { exchange: Exchange::Binance, last_updated: msg.last_update_id.to_string(), bids, asks };

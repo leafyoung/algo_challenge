@@ -7,10 +7,11 @@
 
 ## TODO
 
--    [x] Test Binance & Bitstamp with cli
--    [x] Connect to Exchange's Websocket
--    [x] Connect to two exchanges' websocket feeds at the same time
--    [x] Aggregation
+-   [x] Test Binance & Bitstamp with cli
+-   [x] Connect to Exchange's Websocket
+-   [x] Connect to two exchanges' websocket feeds at the same time
+-   [x] Aggregation
+
 5. gRPC server
 6. Optimize
 
@@ -35,9 +36,7 @@ wscat -c wss://stream.binance.com:9443/ws
 ```json
 { "method": "SUBSCRIBE",   "params": [ "btcusdt@depth20@100ms"  ],  "id": 1 }
 { "method": "SUBSCRIBE",   "params": [     "btcusdt@aggTrade",     "btcusdt@depth"  ],  "id": 1 }
-
 { "method": "UNSUBSCRIBE",   "params": [     "btcusdt@depth"   ],   "id": 312 }
-cli
 { "method": "LIST_SUBSCRIPTIONS", "id": 3 }
 ```
 
