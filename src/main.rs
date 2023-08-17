@@ -77,11 +77,10 @@ async fn streaming_bitstamp(symbol: &str, tx: mpsc::Sender<OrderBook>) {
     let mut bitstamp_client = BitstampClient::connect_public()
         .await
         .expect("cannot connect");
-    bitstamp_client.subscribe_orderbook(&symbol, BEST_OF).await;
+    bitstamp_client.subscribe_orderbook(symbol, BEST_OF).await;
     let mut book_events = bitstamp_client.book_events.unwrap();
     while let Some(ob) = book_events.next().await {
         tx.send(ob).await.unwrap();
-        // println!("GOT = {:?}", ob.last_updated);
     }
 }
 
@@ -96,7 +95,7 @@ async fn streaming_binance(
         .expect("cannot connect");
     binance_client
         .subscribe_orderbook(
-            &symbol,
+            symbol,
             levels.unwrap_or(PriceLevels::L20),
             speed.unwrap_or(Speed::S100),
             BEST_OF,
@@ -105,6 +104,5 @@ async fn streaming_binance(
     let mut depth_events = binance_client.book_events.unwrap();
     while let Some(ob) = depth_events.next().await {
         tx.send(ob).await.unwrap();
-        //println!("GOT = {:?}", ob.last_updated);
     }
 }

@@ -55,8 +55,8 @@ impl Summary {
 
         Summary {
             spread: asks[0].price - bids[0].price,
-            bids: bids,
-            asks: asks,
+            bids,
+            asks,
         }
     }
 }
