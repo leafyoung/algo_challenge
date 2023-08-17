@@ -38,7 +38,9 @@ BitstampClient ---Orderbook---/                                        \---> Cli
 
 -   Summary is merged from two order books. When one of the orderbook gets updated, it will be merged the another and sent to gRPC server.
 
-## 1. wscat cli
+## Reference
+
+### wscat cli
 
 ```bash
 wscat -c wss://stream.binance.com:9443/ws/btcusdt@ticker
@@ -72,32 +74,6 @@ wscat -c wss://ws.bitstamp.net
 
 ```json
 { "event": "bts:subscribe", "data": { "channel": "order_book_btcusd" } }
-```
-
-# Reference
-
-grpc.io / protobuf
-
-```rust
-syntax = "proto3";
-package orderbook;
-
-service OrderbookAggregator {
-    rpc BookSummary(Empty) returns (stream Summary);
-}
-
-message Empty {}
-
-message Summary {
-    double spread = 1;
-    repeated Level bids = 2;
-    repeated Level asks = 3;
-}
-message Level {
-    string exchange = 1;
-    double price = 2;
-    double amount = 3;
-}
 ```
 
 ## Docs
