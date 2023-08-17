@@ -30,18 +30,13 @@ cargo run --release --bin client
 
 ## Design
 
--   binance_client.rs: BinanceClient
--   bitstamp_client.rs: BitstampClient
-
-Schema
-
 ```
 BinanceClient  ---Orderbook---\                                        /---> Client A
                               |---> Manager ---Summary---> gRPC Server ---> Client B
 BitstampClient ---Orderbook---/                                        \---> Client C
 ```
 
-Summary is merged from two order books. When one of the orderbook gets updated, it will be merged the another and sent to gRPC server.
+-   Summary is merged from two order books. When one of the orderbook gets updated, it will be merged the another and sent to gRPC server.
 
 ## 1. wscat cli
 
