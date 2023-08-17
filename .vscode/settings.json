@@ -4,12 +4,17 @@
         "btcusd",
         "btcusdt",
         "ethbtc",
+        "helloworld",
+        "prost",
+        "proto",
+        "protos",
         "reqwest",
         "serde",
         "thiserror",
         "tungstenite"
     ],
     "rust-analyzer.linkedProjects": [
+        "./Cargo.toml",
         "./Cargo.toml",
         "./Cargo.toml"
     ]

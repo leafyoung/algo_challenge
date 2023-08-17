@@ -175,7 +175,7 @@ impl BinanceClient {
                              amount: x.1.parse::<f32>().unwrap()
                         }))
                         .collect();
-                    let book_event = OrderBook { exchange: Exchange::Binance, last_updated: msg.last_update_id.to_string(), bids: bids, asks: asks };
+                    let book_event = OrderBook { exchange: Exchange::Binance, last_updated: msg.last_update_id.to_string(), bids, asks };
                     yield book_event;
                 }
             }

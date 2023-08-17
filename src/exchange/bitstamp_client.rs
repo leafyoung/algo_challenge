@@ -162,7 +162,7 @@ impl BitstampClient {
                              amount: x.1.parse::<f32>().unwrap()
                         }))
                         .collect();
-                    let book_event = OrderBook { exchange: Exchange::Bitstamp, last_updated: msg.data.microtimestamp, bids: bids, asks: asks };
+                    let book_event = OrderBook { exchange: Exchange::Bitstamp, last_updated: msg.data.microtimestamp, bids, asks};
                     yield book_event;
                 }
             }
