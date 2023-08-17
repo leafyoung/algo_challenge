@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use tokio::net::TcpStream;
 use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, WebSocketStream};
 
-use crate::exchange::types::{Exchange, Level, OrderBook};
+use crate::types::{Exchange, Level, OrderBook};
 
 use crate::exchange::error::Error;
 pub type Result<T> = std::result::Result<T, Error>;
@@ -66,7 +66,6 @@ impl BitstampClient {
         let (stream, _) = connect_async(url).await?;
         let (sender, receiver) = stream.split();
         let (broadcast_sender, _) = tokio::sync::broadcast::channel::<String>(32);
-
         let broadcast = broadcast_sender.clone();
 
         let thread_handle = tokio::spawn(async move {
@@ -149,8 +148,8 @@ impl BitstampClient {
                         .take(best_of)
                         .map(|x| (Level {
                             exchange: Exchange::Bitstamp.to_string(),
-                            price: x.0.parse::<f32>().unwrap(),
-                             amount: x.1.parse::<f32>().unwrap()
+                            price: x.0.parse::<f64>().unwrap(),
+                             amount: x.1.parse::<f64>().unwrap()
                         }))
                         .collect();
                     let asks = msg.data.asks
@@ -158,8 +157,8 @@ impl BitstampClient {
                         .take(best_of)
                         .map(|x| (Level {
                             exchange: Exchange::Bitstamp.to_string(),
-                            price: x.0.parse::<f32>().unwrap(),
-                             amount: x.1.parse::<f32>().unwrap()
+                            price: x.0.parse::<f64>().unwrap(),
+                             amount: x.1.parse::<f64>().unwrap()
                         }))
                         .collect();
                     let book_event = OrderBook { exchange: Exchange::Bitstamp, last_updated: msg.data.microtimestamp, bids, asks};

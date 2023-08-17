@@ -1,41 +1,63 @@
-/*
-#[derive(Clone)]
-pub struct AlexandriaApiServer<T>
-where
-    T: 'static + DataStore + Send + Sync,
-{
-    data_store: Arc<T>,
+use tokio::sync::broadcast;
+use tokio::sync::mpsc;
+
+use tokio_stream::wrappers::ReceiverStream;
+use tonic::transport::Server;
+use tonic::{Request, Response, Status};
+
+use crate::types::{
+    Empty, Exchange, OrderBook, OrderbookAggregator, OrderbookAggregatorServer, Summary,
+};
+
+pub async fn start_grpc_server(server: &str, s_tx_clone: broadcast::Sender<Summary>) {
+    let addr = server.parse().unwrap();
+    let oas = OrderbookAggregatorService {
+        s_tx: Some(s_tx_clone),
+    };
+
+    let _ = Server::builder()
+        .add_service(OrderbookAggregatorServer::new(oas))
+        .serve(addr)
+        .await;
 }
 
-impl<T> AlexandriaApiServer<T>
-where
-    T: 'static + DataStore + Send + Sync,
-{
-    pub fn new(store: T) -> AlexandriaApiServer<T> {
-        AlexandriaApiServer {
-            data_store: Arc::new(store),
+pub async fn manager(
+    mut rx: broadcast::Receiver<OrderBook>,
+    s_tx: broadcast::Sender<Summary>,
+    best_of: usize,
+) {
+    let mut ob_bitstamp = None;
+    let mut ob_binance = None;
+    while let Ok(ob) = rx.recv().await {
+        // println!("GOT_manager = {:?}", ob.last_updated);
+        match ob.exchange {
+            Exchange::Binance => {
+                ob_binance = Some(ob);
+            }
+            Exchange::Bitstamp => {
+                ob_bitstamp = Some(ob);
+            }
+        }
+        if ob_binance.is_none() || ob_bitstamp.is_none() {
+            continue;
+        }
+        let ob_merged = Summary::merge(
+            ob_bitstamp.clone().unwrap(),
+            ob_binance.clone().unwrap(),
+            best_of,
+        );
+
+        // println!("{} {}", &ob_merged.bids.len(), &ob_merged.asks.len());
+        if let Err(e) = s_tx.send(ob_merged) {
+            eprintln!("Error sending message: {}", e);
         }
     }
 }
-*/
-
-use std::pin::Pin;
-use std::sync::Arc;
-use tokio::sync::mpsc;
-use tokio_stream::{wrappers::ReceiverStream, Stream};
-use tonic::{transport::Server, Request, Response, Status};
-
-pub mod orderbook_aggregator {
-    tonic::include_proto!("orderbook"); // The string specified here must match the proto package name
-}
-
-use orderbook_aggregator::orderbook_aggregator_server::{
-    OrderbookAggregator, OrderbookAggregatorServer,
-};
-use orderbook_aggregator::{Empty, Level, Summary};
 
 #[derive(Debug, Default)]
-pub struct OrderbookAggregatorService {}
+pub struct OrderbookAggregatorService {
+    pub s_tx: Option<broadcast::Sender<Summary>>,
+}
 
 #[tonic::async_trait]
 impl OrderbookAggregator for OrderbookAggregatorService {
@@ -45,46 +67,26 @@ impl OrderbookAggregator for OrderbookAggregatorService {
         &self,
         _request: Request<Empty>,
     ) -> Result<Response<Self::BookSummaryStream>, Status> {
-        // unimplemented!()
-
         println!("Got a request: {:?}", _request);
 
-        let mut reply = Summary {
-            spread: 0.0,
-            asks: vec![Level {
-                exchange: "Bitstamp".to_string(),
-                price: 0.0,
-                amount: 0.0,
-            }],
-            bids: vec![Level {
-                exchange: "Binance".to_string(),
-                price: 0.0,
-                amount: 0.0,
-            }],
-        };
+        let mut s_rx = self.s_tx.clone().expect("not connected").subscribe();
 
         let (tx, rx) = mpsc::channel(4);
-
         tokio::spawn(async move {
-            for _ in 0..5 {
-                reply.spread += 1.0;
-                tx.send(Ok(reply.clone())).await.unwrap();
+            loop {
+                let data = s_rx.recv().await;
+                if let Ok(ob) = data {
+                    match tx.send(Ok(ob)).await {
+                        Ok(_) => {}
+                        Err(_) => {
+                            println!("Stopped sending data to gRPC client");
+                            break;
+                        }
+                    };
+                }
             }
         });
 
         Ok(Response::new(ReceiverStream::new(rx)))
     }
-}
-
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let addr = "[::1]:50051".parse()?;
-    let oba = OrderbookAggregatorService::default();
-
-    Server::builder()
-        .add_service(OrderbookAggregatorServer::new(oba))
-        .serve(addr)
-        .await?;
-
-    Ok(())
 }

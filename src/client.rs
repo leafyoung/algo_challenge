@@ -1,11 +1,9 @@
-pub mod orderbook_aggregator {
-    tonic::include_proto!("orderbook"); // The string specified here must match the proto package name
-}
+mod types;
 
-use orderbook_aggregator::orderbook_aggregator_client::OrderbookAggregatorClient;
-use orderbook_aggregator::Empty;
 use std::thread;
 use std::time::Duration;
+
+use types::{Empty, OrderbookAggregatorClient};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -18,7 +16,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .into_inner();
 
         while let Some(feature) = stream.message().await? {
-            println!("NOTE = {:?}", feature);
+            println!("Response = {:?}", feature);
         }
 
         thread::sleep(Duration::from_secs(2));

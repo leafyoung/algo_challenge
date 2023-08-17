@@ -1,20 +1,41 @@
-# Tasks
+# Challenge
 
-1.  connects to two exchanges' websocket feeds at the same time,
-2.  pulls order book or a given traded pair of currencies (configurable), from each exchanges, using these streaming connections,
-3.  merges and sorts the order books to create a combined order book
-4.  from the combined book, publishes the spread, top ten bids, and top ten asks, as a stream, through a gRPC server.
+## Test
+
+Server
+
+```bash
+cargo run --release --bin server
+```
+
+Client
+
+```bash
+cargo run --release --bin client
+```
 
 ## TODO
 
--    [x] Test Binance & Bitstamp with cli
--    [x] Connect to Exchange's Websocket
--    [x] Connect to two exchanges' websocket feeds at the same time
--    [x] Aggregation
-5. gRPC server
-6. Optimize
+-   [x] Test Binance & Bitstamp with cli
+-   [x] Connect to Exchange's Websocket
+-   [x] Connect to two exchanges' websocket feeds at the same time
+-   [x] Aggregation
+-   [x] gRPC server
+-   [x] Optimize
 
-## 1. wscat cli
+## Design
+
+```
+BinanceClient  ---Orderbook---\                                        /---> Client A
+                              |---> Manager ---Summary---> gRPC Server ---> Client B
+BitstampClient ---Orderbook---/                                        \---> Client C
+```
+
+-   Summary is merged from two order books. When one of the orderbook gets updated, it will be merged the another and sent to gRPC server.
+
+## Reference
+
+### wscat cli
 
 ```bash
 wscat -c wss://stream.binance.com:9443/ws/btcusdt@ticker
@@ -35,9 +56,7 @@ wscat -c wss://stream.binance.com:9443/ws
 ```json
 { "method": "SUBSCRIBE",   "params": [ "btcusdt@depth20@100ms"  ],  "id": 1 }
 { "method": "SUBSCRIBE",   "params": [     "btcusdt@aggTrade",     "btcusdt@depth"  ],  "id": 1 }
-
 { "method": "UNSUBSCRIBE",   "params": [     "btcusdt@depth"   ],   "id": 312 }
-cli
 { "method": "LIST_SUBSCRIPTIONS", "id": 3 }
 ```
 
@@ -50,32 +69,6 @@ wscat -c wss://ws.bitstamp.net
 
 ```json
 { "event": "bts:subscribe", "data": { "channel": "order_book_btcusd" } }
-```
-
-# Reference
-
-grpc.io / protobuf
-
-```rust
-syntax = "proto3";
-package orderbook;
-
-service OrderbookAggregator {
-    rpc BookSummary(Empty) returns (stream Summary);
-}
-
-message Empty {}
-
-message Summary {
-    double spread = 1;
-    repeated Level bids = 2;
-    repeated Level asks = 3;
-}
-message Level {
-    string exchange = 1;
-    double price = 2;
-    double amount = 3;
-}
 ```
 
 ## Docs
