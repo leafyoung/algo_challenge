@@ -12,7 +12,8 @@ use types::{OrderBook, Summary};
 const BEST_OF: usize = 10;
 const SERVER: &str = "[::1]:50051";
 
-// cargo run --release btcusd btcusdt
+// cargo run --release --bin server btcusdt btcusdt
+// cargo run --release --bin server ethbtc ethbtc
 
 #[tokio::main]
 async fn main() {

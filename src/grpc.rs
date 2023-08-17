@@ -26,29 +26,26 @@ pub async fn manager(
     s_tx: broadcast::Sender<Summary>,
     best_of: usize,
 ) {
-    let mut ob_bitstamp = OrderBook {
-        exchange: Exchange::Bitstamp,
-        last_updated: String::new(),
-        bids: Vec::new(),
-        asks: Vec::new(),
-    };
-    let mut ob_binance = OrderBook {
-        exchange: Exchange::Binance,
-        last_updated: String::new(),
-        bids: Vec::new(),
-        asks: Vec::new(),
-    };
+    let mut ob_bitstamp = None;
+    let mut ob_binance = None;
     while let Ok(ob) = rx.recv().await {
         // println!("GOT_manager = {:?}", ob.last_updated);
         match ob.exchange {
             Exchange::Binance => {
-                ob_binance = ob;
+                ob_binance = Some(ob);
             }
             Exchange::Bitstamp => {
-                ob_bitstamp = ob;
+                ob_bitstamp = Some(ob);
             }
         }
-        let ob_merged = Summary::merge(ob_bitstamp.clone(), ob_binance.clone(), best_of);
+        if ob_binance.is_none() || ob_bitstamp.is_none() {
+            continue;
+        }
+        let ob_merged = Summary::merge(
+            ob_bitstamp.clone().unwrap(),
+            ob_binance.clone().unwrap(),
+            best_of,
+        );
 
         // println!("{} {}", &ob_merged.bids.len(), &ob_merged.asks.len());
         if let Err(e) = s_tx.send(ob_merged) {

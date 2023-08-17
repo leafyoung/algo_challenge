@@ -1,3 +1,17 @@
+# Test drive
+
+Server
+
+```bash
+cargo run --release --bin server
+```
+
+Client
+
+```bash
+cargo run --release --bin client
+```
+
 # Tasks
 
 1.  connects to two exchanges' websocket feeds at the same time,
@@ -11,9 +25,23 @@
 -   [x] Connect to Exchange's Websocket
 -   [x] Connect to two exchanges' websocket feeds at the same time
 -   [x] Aggregation
+-   [x] gRPC server
+-   [x] Optimize
 
-5. gRPC server
-6. Optimize
+## Design
+
+-   binance_client.rs: BinanceClient
+-   bitstamp_client.rs: BitstampClient
+
+Schema
+
+```
+BinanceClient  ---Orderbook---\                                        /---> Client A
+                              |---> Manager ---Summary---> gRPC Server ---> Client B
+BitstampClient ---Orderbook---/                                        \---> Client C
+```
+
+Summary is merged from two order books. When one of the orderbook gets updated, it will be merged the another and sent to gRPC server.
 
 ## 1. wscat cli
 
