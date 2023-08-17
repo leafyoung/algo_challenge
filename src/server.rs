@@ -3,11 +3,11 @@ mod grpc;
 mod streaming;
 mod types;
 
-use grpc::OrderbookAggregatorService;
+use grpc::{manager, start_grpc_server};
 use std::env;
 use tokio::sync::broadcast;
-use tonic::transport::Server;
-use types::{Exchange, OrderBook, OrderbookAggregatorServer, Summary};
+
+use types::{OrderBook, Summary};
 
 const BEST_OF: usize = 10;
 const SERVER: &str = "[::1]:50051";
@@ -30,7 +30,7 @@ async fn main() {
         (String::from(&args[1]), String::from(&args[2]))
     };
 
-    let (tx1, mut rx) = broadcast::channel::<OrderBook>(32);
+    let (tx1, rx) = broadcast::channel::<OrderBook>(32);
     let tx2 = tx1.clone();
 
     let bitstamp_handle =
@@ -44,49 +44,9 @@ async fn main() {
     let (s_tx, mut _s_rx) = broadcast::channel::<Summary>(32);
     let s_tx_clone = s_tx.clone();
 
-    let server = tokio::spawn(async move {
-        let addr = SERVER.parse().unwrap();
-        let oas = OrderbookAggregatorService {
-            s_tx: Some(s_tx_clone),
-        };
+    let server = tokio::spawn(async move { start_grpc_server(SERVER, s_tx_clone).await });
 
-        Server::builder()
-            .add_service(OrderbookAggregatorServer::new(oas))
-            .serve(addr)
-            .await
-    });
-
-    let manager = tokio::spawn(async move {
-        let mut ob_bitstamp = OrderBook {
-            exchange: Exchange::Bitstamp,
-            last_updated: String::new(),
-            bids: Vec::new(),
-            asks: Vec::new(),
-        };
-        let mut ob_binance = OrderBook {
-            exchange: Exchange::Binance,
-            last_updated: String::new(),
-            bids: Vec::new(),
-            asks: Vec::new(),
-        };
-        while let Ok(ob) = rx.recv().await {
-            // println!("GOT_manager = {:?}", ob.last_updated);
-            match ob.exchange {
-                Exchange::Binance => {
-                    ob_binance = ob;
-                }
-                Exchange::Bitstamp => {
-                    ob_bitstamp = ob;
-                }
-            }
-            let ob_merged = Summary::merge(ob_bitstamp.clone(), ob_binance.clone(), BEST_OF);
-
-            // println!("{} {}", &ob_merged.bids.len(), &ob_merged.asks.len());
-            if let Err(e) = s_tx.send(ob_merged) {
-                eprintln!("Error sending message: {}", e);
-            }
-        }
-    });
+    let manager = tokio::spawn(async move { manager(rx, s_tx, BEST_OF).await });
 
     manager.await.unwrap();
     bitstamp_handle.await.unwrap();
