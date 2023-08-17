@@ -1,9 +1,7 @@
 mod exchange;
+mod streaming;
 
-use crate::exchange::binance_client::{BinanceClient, PriceLevels, Speed};
-use crate::exchange::bitstamp_client::BitstampClient;
 use crate::exchange::types::{Exchange, OrderBook, Summary};
-use futures::StreamExt;
 use std::env;
 use tokio::sync::mpsc;
 
@@ -31,10 +29,12 @@ async fn main() {
     let tx2 = tx.clone();
 
     let bitstamp_handle =
-        tokio::spawn(async move { streaming_bitstamp(&bitstamp_symbol, tx).await });
+        tokio::spawn(async move { streaming::bitstamp(&bitstamp_symbol, tx, BEST_OF).await });
 
     let binance_handle =
-        tokio::spawn(async move { streaming_binance(&binance_symbol, None, None, tx2).await });
+        tokio::spawn(
+            async move { streaming::binance(&binance_symbol, None, None, tx2, BEST_OF).await },
+        );
 
     let manager = tokio::spawn(async move {
         // Start receiving messages
@@ -71,38 +71,4 @@ async fn main() {
     manager.await.unwrap();
     bitstamp_handle.await.unwrap();
     binance_handle.await.unwrap();
-}
-
-async fn streaming_bitstamp(symbol: &str, tx: mpsc::Sender<OrderBook>) {
-    let mut bitstamp_client = BitstampClient::connect_public()
-        .await
-        .expect("cannot connect");
-    bitstamp_client.subscribe_orderbook(symbol, BEST_OF).await;
-    let mut book_events = bitstamp_client.book_events.unwrap();
-    while let Some(ob) = book_events.next().await {
-        tx.send(ob).await.unwrap();
-    }
-}
-
-async fn streaming_binance(
-    symbol: &str,
-    levels: Option<PriceLevels>,
-    speed: Option<Speed>,
-    tx: mpsc::Sender<OrderBook>,
-) {
-    let mut binance_client = BinanceClient::connect_public()
-        .await
-        .expect("cannot connect");
-    binance_client
-        .subscribe_orderbook(
-            symbol,
-            levels.unwrap_or(PriceLevels::L20),
-            speed.unwrap_or(Speed::S100),
-            BEST_OF,
-        )
-        .await;
-    let mut depth_events = binance_client.book_events.unwrap();
-    while let Some(ob) = depth_events.next().await {
-        tx.send(ob).await.unwrap();
-    }
 }

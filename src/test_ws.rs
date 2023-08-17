@@ -4,10 +4,13 @@ use futures_util::{future, pin_mut, StreamExt};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 
-// #[tokio::main]
-async fn test_ws_server() {
-    let connect_addr =
-        env::args().nth(1).unwrap_or_else(|| panic!("this program requires at least one argument"));
+// cargo run --release --bin test_ws wss://stream.binance.com:9443/ws/btcusdt@depth
+
+#[tokio::main]
+async fn main() {
+    let connect_addr = env::args()
+        .nth(1)
+        .unwrap_or_else(|| panic!("this program requires at least one argument"));
 
     let url = url::Url::parse(&connect_addr).unwrap();
 
@@ -15,7 +18,10 @@ async fn test_ws_server() {
     tokio::spawn(read_stdin(stdin_tx));
 
     let (ws_stream, _) = connect_async(url).await.expect("Failed to connect");
-    println!("WebSocket handshake has been successfully completed with {}", connect_addr);
+    println!(
+        "WebSocket handshake has been successfully completed with {}",
+        connect_addr
+    );
 
     let (write, read) = ws_stream.split();
 
@@ -30,8 +36,6 @@ async fn test_ws_server() {
     pin_mut!(stdin_to_ws, ws_to_stdout);
     future::select(stdin_to_ws, ws_to_stdout).await;
 }
-
-
 
 // Our helper method which will read data from stdin and send it along the
 // sender provided.
