@@ -23,6 +23,7 @@ pub use orderbook_aggregator::{Empty, Level, Summary};
 impl Summary {
     #[allow(dead_code)]
     pub fn merge(ob1: OrderBook, ob2: OrderBook, best_of: usize) -> Summary {
+        //# TODO: improve merging
         let mut bids = ob1.bids.clone();
         bids.extend(ob2.bids.clone());
         bids.sort_by(|a, b| b.price.partial_cmp(&a.price).unwrap());
